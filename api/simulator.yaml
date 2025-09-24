@@ -1,0 +1,173 @@
+metadata:
+  # A short, unique suite identifier (used for naming runs and outputs).
+  name: inference-scheduling-well-lit-path-benchmark
+  # One or two sentences describing what this suite explores.
+  description: >
+    Define performance experiments for llm-d by sweeping Gateway API Inference Extension
+    configurations, vLLM engine knobs, and workload intensity.
+
+# -----------------------------------------------------------------------------
+# configuration
+# -----------------------------------------------------------------------------
+# Minimal, global settings independent of any particular experiment case.
+# - namespace: where resources for this suite are created.
+# - output.baseDir: a base path where a runner MAY store logs/results/metadata.
+#   (This file does not dictate how outputs are written; runners can choose.)
+configuration:
+  namespace: llmd-bench
+  output:
+    baseDir: ~/data/inference-scheduling/${metadata.name}/${timestamp}
+    sourceDir: "[component=data]/options[name=results]"
+
+# -----------------------------------------------------------------------------
+# components
+# -----------------------------------------------------------------------------
+# Lists the configurable parts of the system under test AND the workload generator.
+# For each component you may define one or more named options. 
+# The experiment sweep can select among the profiles and over the variables of 
+# each choice.
+components:
+
+  - component: data
+    options:
+      - name: results
+        config: https://a-pvc.yaml
+
+  # ---------------------------------------------------------------------------
+  # vllm component
+  # ---------------------------------------------------------------------------
+  # Defines the model serving layer. The `options` list lets the sweep pick one
+  # deployment style (e.g., single process vs. standalone variant). Variables
+  # below provide tunables that apply to the chosen option. Options that do not
+  # recognize a variable should simply ignore it.
+  - component: vllm
+    options:
+      - name: vllm-standalone
+        config: https://github.com/example-org/llmd-perf-kustomize//engine/vllm-single/overlays/base?ref=main
+        vars:
+          - name: gpu_memory_utilization
+            targetPath: /to/be/done
+            default: 90
+
+          - name: block_size
+            targetPath: /to/be/done
+            default: 64
+
+          - name: max_batched_tokens
+            targetPath: /to/be/done
+            default: 1024
+
+          - name: prefill_token_threshold
+            targetPath: /to/be/done
+            default: 512
+
+          - name: enable_prefill_caching
+            targetPath: /to/be/done
+            default: 1
+
+          - name: tp
+            targetPath: /to/be/done
+            default: 1
+
+          - name: dp
+            targetPath: /to/be/done
+            default: 1
+
+  # ---------------------------------------------------------------------------
+  # workload component
+  # ---------------------------------------------------------------------------
+  # Exactly one workload must be defined here. The `harness` value identifies the
+  # load generator and should be one of: fmperf | inference-perf | guildllm | dllm-bench
+  # (Confirm the spelling of 'guildllm' vs. your preferred tool name.)
+  #
+  # `config` points to a reference containing the workload job/runner definition.
+  #
+  # Variables here are typical load-intensity settings; the sweep can override them
+  # via matching axis names in `sweepSpace.axes`.
+  - component: workload
+    options:
+      - name: custom-workload-generator
+        config: https://github.com/our-custom-generator/manifest.yaml
+        vars:
+          - name: results
+            targetPath: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
+            default: results
+
+  #
+  # workload-profile component
+  #
+  # Creates a ConfigMap with configuration of 
+  - component: workload-profile
+    options:
+      - name: shared_prefix_synthetic
+        config: https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/workload/profiles/inference-perf/shared_prefix_synthetic.yaml.in
+        vars:
+          - name: request_rate
+            targetPath: /request_rate
+          - name: input_len
+            targetPath: /input_len
+          - name: output_len
+            targetPath: /output_len
+          - name: prefix_hit_ratio
+            targetPath: /prefix_hit_ratio
+
+# -----------------------------------------------------------------------------
+# sweepSpace
+# -----------------------------------------------------------------------------
+# Describes combinations and WHICH of them to try.
+#
+# - `axes`: declares the dimensions and value sets to combine.
+#   Each axis name MUST match a variable name in one of the above `vars`
+#   lists OR a profile/option selector under `components` (like `gaie`
+#   or `vllm`). When an axis matches a variable name, it overrides that variable’s
+#   default for the corresponding runs.
+#
+# - By default (if `include` is empty or not present), a runner MAY treat `axes`
+#   as a request for a full Cartesian product across all value lists.
+#
+# - `constraint`: identifies relationships that must or must not hold between variables being
+#   swept. Invalid combinations are ignored.
+sweepSpace:
+  axes:
+    - variables:
+        - vllm/vllm-standalone/gpu_memory_utilization
+      levels: 
+        - values: [50]
+        - values: [60]
+        - values: [70]
+        - values: [80]
+        - values: [90]
+
+    - variables:
+        - vllm/vllm-standalone/block_size
+      levels:
+        - values: [8]
+        - values: [16]
+        - values: [32]
+        - values: [64]
+
+    - variables:
+        - vllm/vllm-standalone/max_batched_tokens
+      levels:
+        - values: [256]
+        - values: [512]
+        - values: [1024]
+        - values: [2056]
+
+    - variables:
+        - vllm/vllm-standalone/tp
+      levels:
+        - values: [1]
+        - values: [2]
+        - values: [4]
+        - values: [8]
+
+    - variables:
+        - vllm/vllm-standalone/dp
+      levels:
+        - values: [1]
+        - values: [2]
+        - values: [4]
+        - values: [8]
+
+  # constraint:
