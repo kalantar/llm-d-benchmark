@@ -1,0 +1,77 @@
+# work in progress
+apiVersion: v1
+kind: Pod
+metadata:
+  name: llmdbench-inference-perf-launcher
+  labels:
+    app: ${LLMDBENCH_RUN_HARNESS_LAUNCHER_NAME}
+spec:
+  serviceAccountName: $LLMDBENCH_HARNESS_SERVICE_ACCOUNT
+  containers:
+  - name: harness
+    image: $(get_image ${LLMDBENCH_IMAGE_REGISTRY} ${LLMDBENCH_IMAGE_REPO} ${LLMDBENCH_IMAGE_NAME} ${LLMDBENCH_IMAGE_TAG})
+    imagePullPolicy: Always
+    securityContext:
+      runAsUser: 0
+    command: ["sh", "-c"]
+    args:
+    - llm-d-benchmark.sh
+    resources:
+      limits:
+        cpu: 16
+        memory: 32Gi
+      requests:
+        cpu: 16
+        memory: 32Gi
+    env:
+    - name: LLMDBENCH_RUN_EXPERIMENT_LAUNCHER
+      value: "1"
+    - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZE_LOCALLY
+      value: "0"
+    - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS
+      value: "${LLMDBENCH_RUN_EXPERIMENT_HARNESS}"
+    - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZER
+      value: "${LLMDBENCH_RUN_EXPERIMENT_ANALYZER}"
+    - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS_WORKLOAD_NAME
+      value: "$LLMDBENCH_HARNESS_EXPERIMENT_PROFILE"
+    - name: LLMDBENCH_RUN_EXPERIMENT_ID
+      value: "${LLMDBENCH_RUN_EXPERIMENT_ID}"
+    - name: LLMDBENCH_HARNESS_NAME
+      value: inference-perf
+    - name: LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR
+      value: $LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR
+    - name: LLMDBENCH_CONTROL_WORK_DIR
+      value: "${LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR}"
+    - name: LLMDBENCH_HARNESS_NAMESPACE
+      value: "${LLMDBENCH_HARNESS_NAMESPACE}"
+    - name: LLMDBENCH_HARNESS_STACK_TYPE
+      value: "${LLMDBENCH_HARNESS_STACK_TYPE}"
+    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
+      value: "${LLMDBENCH_HARNESS_STACK_ENDPOINT_URL}"
+    - name: LLMDBENCH_HARNESS_STACK_NAME
+      value: "${LLMDBENCH_HARNESS_SANITIZED_STACK_NAME}"
+    - name: LLMDBENCH_DEPLOY_METHODS
+      value: "${LLMDBENCH_DEPLOY_METHODS}"
+    - name: LLMDBENCH_MAGIC_ENVAR
+      value: "harness_pod"
+    $(add_env_vars_to_pod $LLMDBENCH_CONTROL_ENV_VAR_LIST_TO_POD)
+    - name: HF_TOKEN_SECRET
+      value: hf-secret
+    - name: HUGGING_FACE_HUB_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: hf-secret
+          key: HF_TOKEN
+    volumeMounts:
+    - name: results
+      mountPath: /requests
+    - name: PROFILE_TYPE-profiles
+      mountPath: /workspace/profiles/inference-perf
+  volumes:
+  - name: results
+    persistentVolumeClaim:
+      claimName: ${ .configuration.source.pvc.name }
+  - name: inference-perf-profiles
+    configMap:
+      name: inference-perf-profiles
+  restartPolicy: Never

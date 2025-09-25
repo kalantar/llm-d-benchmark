@@ -52,6 +52,9 @@ configuration:
 # A config is an inlined manifest; ie yaml string.
 components:
 
+  # ---------------------------------------------------------------------------
+  # model-cache component
+  # ---------------------------------------------------------------------------
   # A PVC where models may be downloaded from huggingface
   - component: model-cache
     options:
@@ -70,8 +73,11 @@ components:
             storageClassName: default
             volumeMode: Filesystem
 
+  # ---------------------------------------------------------------------------
+  # model-download component
+  # ---------------------------------------------------------------------------
   # Mechanism to place the model where it should be
-  - component: model
+  - component: model-download
     options:
       - name: model
         configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/download-job.yaml
@@ -134,6 +140,24 @@ components:
         configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/vllm.yaml        # readiness: to check that this is complete
 
   # ---------------------------------------------------------------------------
+  # workload-profile component
+  # ---------------------------------------------------------------------------
+  # Creates a ConfigMap with configuration of the workload profiles.
+  # This ConfigMap is required to configure the workload component.
+  # Create using: kubectl create cm ${workload_type}-profile--dry-run=client --from-file=workload/profiles/${workload_type} -o yaml > api/${workload_type}-profiles.yaml
+  - component: workload-profile
+    options:
+      - name: workload-profiles
+        configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/inference-perf.yaml
+        vars:
+          - name: question_len
+            object: configmap/inference-perf-profiles
+            path: .data.shared_prefix.question_len
+          - name: output_len
+            object: configmap/inference-perf-profiles
+            path: .data.shared_prefix.output_len
+
+  # ---------------------------------------------------------------------------
   # workload component
   # ---------------------------------------------------------------------------
   # Exactly one workload must be defined here. The `harness` value identifies the
@@ -147,28 +171,13 @@ components:
   - component: harness
     options:
       - name: inference-perf
-        config: https://github.com/inference-perf/manifest.yaml
+        configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/harnesses.yaml
         vars:
+          - name: profileType
+            default: inference-perf
           - name: results
-            targetPath: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
+            path: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
             default: results
-
-  #
-  # workload-profile component
-  #
-  # Creates a ConfigMap with configuration of 
-  - component: workload-profile
-    options:
-      - name: shared_prefix_synthetic
-        configUrl: https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/workload/profiles/inference-perf/shared_prefix_synthetic.yaml.in
-        vars:
-          - name: num_groups
-            targetPath: /data/max-num_groups
-          - name: system_prompt_len
-            targetPath: /data/system_prompt_len
-          - name: results
-            targetPath: /storage/local_storage/path
-            default: /workspace
 
 # -----------------------------------------------------------------------------
 # sweepSpace
@@ -199,14 +208,17 @@ sweepSpace:
           values: [prefix-cache-tracking-config]
 
     - variables: 
-        - workload-profile/shared_prefix_synthetic/num_groups
-        - workload-profile/shared_prefix_synthetic/system_prompt_len
+        - workload-profile/shared_prefix_synthetic/question_len
+        - workload-profile/shared_prefix_synthetic/output_len
       levels:
-        - name: long
-          values: [40,8000]
-        - name: medium
-          values: [60,5000]
-        - name: short
-          values: [60,1000]
+        - values: [100,100]
+        - values: [100,300]
+        - values: [100,1000]
+        - values: [300,100]
+        - values: [300,300]
+        - values: [300,1000]
+        - values: [1000,100]
+        - values: [1000,300]
+        - values: [1000,1000]
 
   # constraint:
