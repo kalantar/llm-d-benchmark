@@ -9,7 +9,7 @@ spec:
   serviceAccountName: $LLMDBENCH_HARNESS_SERVICE_ACCOUNT
   containers:
   - name: harness
-    image: $(get_image ${LLMDBENCH_IMAGE_REGISTRY} ${LLMDBENCH_IMAGE_REPO} ${LLMDBENCH_IMAGE_NAME} ${LLMDBENCH_IMAGE_TAG})
+    image: ghcr.io/llm-d/llm-d-benchmark:latest
     imagePullPolicy: Always
     securityContext:
       runAsUser: 0
@@ -28,30 +28,32 @@ spec:
       value: "1"
     - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZE_LOCALLY
       value: "0"
-    - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS
-      value: "${LLMDBENCH_RUN_EXPERIMENT_HARNESS}"
+    # the model endpoint
+    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
+      value: FILL_IN
     - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZER
-      value: "${LLMDBENCH_RUN_EXPERIMENT_ANALYZER}"
+      value: "inference-perf-analyze_results.sh"
     - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS_WORKLOAD_NAME
-      value: "$LLMDBENCH_HARNESS_EXPERIMENT_PROFILE"
+      value: FILL_IN
     - name: LLMDBENCH_RUN_EXPERIMENT_ID
-      value: "${LLMDBENCH_RUN_EXPERIMENT_ID}"
+      value: FILL_IN
     - name: LLMDBENCH_HARNESS_NAME
       value: inference-perf
     - name: LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR
-      value: $LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR
+      value: FILL_IN
     - name: LLMDBENCH_CONTROL_WORK_DIR
-      value: "${LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR}"
+      value: FILL_IN
     - name: LLMDBENCH_HARNESS_NAMESPACE
-      value: "${LLMDBENCH_HARNESS_NAMESPACE}"
+      value: FILL_IN
     - name: LLMDBENCH_HARNESS_STACK_TYPE
-      value: "${LLMDBENCH_HARNESS_STACK_TYPE}"
+      value: FILL_IN
     - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
-      value: "${LLMDBENCH_HARNESS_STACK_ENDPOINT_URL}"
+      value: FILL_IN
     - name: LLMDBENCH_HARNESS_STACK_NAME
-      value: "${LLMDBENCH_HARNESS_SANITIZED_STACK_NAME}"
-    - name: LLMDBENCH_DEPLOY_METHODS
-      value: "${LLMDBENCH_DEPLOY_METHODS}"
+      value: FILL_IN
+    # does not seem to get used
+    # - name: LLMDBENCH_DEPLOY_METHODS
+    #   value: "${LLMDBENCH_DEPLOY_METHODS}"
     - name: LLMDBENCH_MAGIC_ENVAR
       value: "harness_pod"
     $(add_env_vars_to_pod $LLMDBENCH_CONTROL_ENV_VAR_LIST_TO_POD)
@@ -65,12 +67,12 @@ spec:
     volumeMounts:
     - name: results
       mountPath: /requests
-    - name: PROFILE_TYPE-profiles
+    - name: inference-perf-profiles
       mountPath: /workspace/profiles/inference-perf
   volumes:
   - name: results
     persistentVolumeClaim:
-      claimName: ${ .configuration.source.pvc.name }
+      claimName: FILL_IN
   - name: inference-perf-profiles
     configMap:
       name: inference-perf-profiles

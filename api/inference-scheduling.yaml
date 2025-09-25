@@ -16,7 +16,7 @@ metadata:
 # - output.dir: the location on the target medium where a directory of the results should be written.
 # - source: the location of a directory on the results PVC where sweep steps will write results
 configuration:
-  namespace: llmd-bench
+  namespace: kalantar-test
   output:
     target: # support s3, git (first), cos, googledrive
       git:
@@ -147,7 +147,7 @@ components:
   # Create using: kubectl create cm ${workload_type}-profile--dry-run=client --from-file=workload/profiles/${workload_type} -o yaml > api/${workload_type}-profiles.yaml
   - component: workload-profile
     options:
-      - name: workload-profiles
+      - name: shared_prefix_synthetic
         configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/inference-perf.yaml
         vars:
           - name: question_len
@@ -173,11 +173,40 @@ components:
       - name: inference-perf
         configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/harnesses.yaml
         vars:
-          - name: profileType
-            default: inference-perf
-          - name: results
-            path: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
-            default: results
+          - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_HARNESS_STACK_ENDPOINT_URL")].value
+            default: TBD
+          - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS_WORKLOAD_NAME
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_RUN_EXPERIMENT_HARNESS_WORKLOAD_NAME")].value
+            default: shared_prefix_synthetic.yaml.in
+          - name: LLMDBENCH_HARNESS_NAMESPACE
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_HARNESS_NAMESPACE")].value
+            default: { $.configuration.namespace }
+          - name: LLMDBENCH_RUN_EXPERIMENT_ID
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_RUN_EXPERIMENT_ID")].value
+            default: TBD
+          - name: LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_RUN_EXPERIMENT_RESULTS_DIR")].value
+            default: TBD
+          - name: LLMDBENCH_CONTROL_WORK_DIR
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_CONTROL_WORK_DIR")].value
+            default: TBD
+          - name: LLMDBENCH_HARNESS_STACK_TYPE
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_HARNESS_STACK_TYPE")].value
+            default: TBD
+          - name: LLMDBENCH_HARNESS_STACK_NAME
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="LLMDBENCH_HARNESS_STACK_NAME")].value
+            default: TBD
+          - name: HUGGING_FACE_HUB_TOKEN
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="HUGGING_FACE_HUB_TOKEN")].valueFrom.secretKeyRef.name
+            default: { $.configuration.hfsecret }
+          - name: HF_TOKEN_SECRET
+            path: .spec.template.spec.containers[?(@.name=="harness")].env[?(@.name=="HF_TOKEN_SECRET")].value
+            default: { $.configuration.hfsecret }
+
+          - name: resultsPvc
+            path: .spec.template.spec.volumes[?(@.name=="results")].persistentVolumeClaim.claimName
+            default: ${ .configuration.source.pvc.name }
 
 # -----------------------------------------------------------------------------
 # sweepSpace
