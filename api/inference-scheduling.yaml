@@ -1,44 +1,97 @@
 metadata:
   # A short, unique suite identifier (used for naming runs and outputs).
-  name: inference-scheduling-well-lit-path-benchmark
+  name: inference-scheduling
   # One or two sentences describing what this suite explores.
   description: >
-    Define performance experiments for llm-d by sweeping Gateway API Inference Extension
-    configurations, vLLM engine knobs, and workload intensity.
+    Defines an experiment to test the llm-d inference-scheduling well lit path.
+    This experiment tests the behavior of different inference-scheduling algorithms.
 
 # -----------------------------------------------------------------------------
 # configuration
 # -----------------------------------------------------------------------------
 # Minimal, global settings independent of any particular experiment case.
 # - namespace: where resources for this suite are created.
-# - output.baseDir: a base path where a runner MAY store logs/results/metadata.
-#   (This file does not dictate how outputs are written; runners can choose.)
+# - output: location where experiment output should be written. This is a 
+#           one of git, s3, or googledrive and a dir.
+# - output.dir: the location on the target medium where a directory of the results should be written.
+# - source: the location of a directory on the results PVC where sweep steps will write results
 configuration:
   namespace: llmd-bench
   output:
-    baseDir: ~/data/inference-scheduling/${metadata.name}/${timestamp}
-    sourceDir: "[component=data]/options[name=results]"
+    target: # support s3, git (first), cos, googledrive
+      git:
+        secretRef: gitsecret  # should contain fields username and password
+        repository: github.com/kalantar/llm-d-data
+        branch: main
+      dir: kalantar/inference-scheduling
+    source:
+      pvc:
+        # flag indicating whether or not the PVC should be created as part of the experiment execution.
+        create: false
+        name: workload-pvc
+        # size of the volume that should be created. Ignored if create: false
+        size: 20 Gi
+        # storageClass is the StorageClass of the PVC to create. Ignored if created: false
+        # The selected StorageClass MUST support the RWX access mode.
+        storageClass: default
+      # location relative the mount location where a directory containing the results of all sweeps should be written.
+      dir: kalantar/inference-scheduling
+  hfsecret: llm-d-hf-token
+  model: meta-llama/Llama-3.1-8B-Instruct
 
 # -----------------------------------------------------------------------------
 # components
 # -----------------------------------------------------------------------------
 # Lists the configurable parts of the system under test AND the workload generator.
-# For each component you may define one or more named options. 
-# The experiment sweep can select among the profiles and over the variables of 
-# each choice.
+# For each component you may define one or more named options. These options
+# CAN be axis of the sweepSpace.
+# Only components that need to be deployed or may be modified during an experiment
+# SHOULD to be specified.
+# For each option, either a configUrl or a config MUST be specified. A configUrl
+# references a manifest that should be deployed to create the component.
+# A config is an inlined manifest; ie yaml string.
 components:
 
+  # A PVC where models may be downloaded from huggingface
   - component: model-cache
     options:
       - name: model-cache
-        config: https://a-pvc-and-job-manifest.yaml
-        # can inline config
-        # do we need a configType field: inline, manifest, helm, kustomize ?
+        config: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: model-pvc
+          spec:
+            accessModes:
+            - ReadWriteMany
+            resources:
+              requests:
+                storage: 100 Gi
+            storageClassName: default
+            volumeMode: Filesystem
 
-  - component: data
+  # Mechanism to place the model where it should be
+  - component: model
     options:
-      - name: results
-        config: https://a-pvc.yaml
+      - name: model
+        configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/download-job.yaml
+        vars:
+          - name: hfSecret
+            object: job/download-model
+            path: .spec.template.spec.containers[?(@.name=="downloader")].env[?(@.name=="HF_TOKEN")].valueFrom.secretKeyRef.name
+            default: { $.configuration.hfsecret }
+          - name: model
+            object: job/download-model
+            path: .spec.template.spec.containers[?(@.name=="downloader")].env[?(@.name=="HF_MODEL_ID")].value
+            default: { $.configuration.model }
+          - name: modelPath
+            object: job/download-model
+            path: .spec.template.spec.containers[?(@.name=="downloader")].env[?(@.name=="MODEL_PATH")].value
+            default: /models/{ $.configuration.model }
+          - name: pvcName
+            object: job/download-model
+            path: .spec.template.spec.volumes[?(@.name=="model-cache")].persistentVolumeClaim
+            default: model-pvc
 
   # ---------------------------------------------------------------------------
   # gateway component
@@ -47,12 +100,10 @@ components:
   # If this section is omitted entirely, the runner should assume a gateway
   # is already deployed and should not be modified by this suite.
   #
-  # `config` points to a reference containing the gateway definition (for example,
-  # a remote file path or repository location that resolves to a valid definition).
-  - component:
-    options:
-      - name: istio
-        config: https://github.com/example-org/istio-gateway.yaml
+  # - component:
+  #   options:
+  #     - name: istio
+  #       config: https://github.com/example-org/istio-gateway.yaml
 
   # ---------------------------------------------------------------------------
   # gaie component
@@ -61,42 +112,26 @@ components:
   # Kubernetes Gateway API Inference Extension (gaie) behavior (e.g., default vs.
   # scheduler-backed with different picker strategies).
   #
-  # `config` may be either:
-  # - an embedded manifest
-  # - or a reference that resolves to a concrete configuration
-  #
   # If this section is omitted or no profile is selected, the runner should assume
-  # the extension configuration is already present and unchanged.
+  # the extension configuration is already present and will remain unchanged.
   - component: gaie
     options:
       - name: gaie
-        config: https://github.com/example-org/gaie.yaml
+        configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/gaie.yaml
         vars:
           - name: profile
-            targetPath: Deployment[metadata.name=epp]:/spec/template/spec/containers[0]/args[]
+            object: deployment/mygaie-epp
+            path: .spec.template.spec.containers.args[=--config-file]
             default: default.yaml
 
   # ---------------------------------------------------------------------------
   # vllm component
   # ---------------------------------------------------------------------------
-  # Defines the model serving layer. The `options` list lets the sweep pick one
-  # deployment style (e.g., single process vs. standalone variant). Variables
-  # below provide tunables that apply to the chosen option. Options that do not
-  # recognize a variable should simply ignore it.
+  # Defines the model serving layer. Zero or more options can be specified.
   - component: vllm
     options:
-      - name: vllm-pd
-        config: https://github.com/example-org/llmd-perf-kustomize//engine/vllm-single/overlays/base?ref=main
-        vars:
-          - name: prefill_replicas
-            targetPath: prefill/spec/replicas
-          - name: prefill_tp
-            targetPath: prefill/spec/components[0]/args[]
-          - name: decode_replicas
-            targetPath: decode/spec/replicas
-            default: 1
-          - name: decode_tp
-            targetPath: decode/spec/components[0]/args[]
+      - name: vllm
+        configUrl: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/proposed-api/api/vllm.yaml        # readiness: to check that this is complete
 
   # ---------------------------------------------------------------------------
   # workload component
@@ -109,7 +144,7 @@ components:
   #
   # Variables here are typical load-intensity settings; the sweep can override them
   # via matching axis names in `sweepSpace.axes`.
-  - component: workload
+  - component: harness
     options:
       - name: inference-perf
         config: https://github.com/inference-perf/manifest.yaml
@@ -125,7 +160,7 @@ components:
   - component: workload-profile
     options:
       - name: shared_prefix_synthetic
-        config: https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/workload/profiles/inference-perf/shared_prefix_synthetic.yaml.in
+        configUrl: https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/workload/profiles/inference-perf/shared_prefix_synthetic.yaml.in
         vars:
           - name: num_groups
             targetPath: /data/max-num_groups

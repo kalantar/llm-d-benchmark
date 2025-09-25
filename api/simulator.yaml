@@ -90,6 +90,17 @@ components:
         config: https://github.com/our-custom-generator/manifest.yaml
         vars:
           - name: results
+            fieldRef:
+              objectRef:
+                apiVersion: version
+                kind: kind
+                namespace: ns
+                name: name
+              path:
+            jsonPath: .spec.template.spec.volumes[?(@.name=="results")].persistentVolumeClaim.claimName
+            jsmePath: spec.template.spec.volumes[?name=='results'].persistentVolumeClaim.claimName
+            jsonPointer: /spec/template/spec/volumes/0/persistentVolumeClaim/claimName
+            celPath: self.spec.template.spec.volumes.exists(v, v.name == 'results')
             targetPath: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
             default: results
 
