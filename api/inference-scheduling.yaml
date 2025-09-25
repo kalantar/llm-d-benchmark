@@ -30,7 +30,7 @@ configuration:
         create: false
         name: workload-pvc
         # size of the volume that should be created. Ignored if create: false
-        size: 20 Gi
+        size: 20Gi
         # storageClass is the StorageClass of the PVC to create. Ignored if created: false
         # The selected StorageClass MUST support the RWX access mode.
         storageClass: default
@@ -255,3 +255,5 @@ sweepSpace:
         - values: [1000,1000]
 
   # constraint:
+  # filter:
+  # exclude:

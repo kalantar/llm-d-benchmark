@@ -29,9 +29,9 @@ spec:
     - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZE_LOCALLY
       value: "0"
     # the model endpoint
-    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
+    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL. # model url
       value: FILL_IN
-    - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZER
+    - name: LLMDBENCH_RUN_EXPERIMENT_ANALYZER. @hen analyzelocally is 1
       value: "inference-perf-analyze_results.sh"
     - name: LLMDBENCH_RUN_EXPERIMENT_HARNESS_WORKLOAD_NAME
       value: FILL_IN
@@ -46,10 +46,10 @@ spec:
     - name: LLMDBENCH_HARNESS_NAMESPACE
       value: FILL_IN
     - name: LLMDBENCH_HARNESS_STACK_TYPE
+      value: FILL_IN   # vllm-prod, llm-d, mock   what used for???  fmperf needs it
+    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL. # duplicate
       value: FILL_IN
-    - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
-      value: FILL_IN
-    - name: LLMDBENCH_HARNESS_STACK_NAME
+    - name: LLMDBENCH_HARNESS_STACK_NAME  # label used for output file; 
       value: FILL_IN
     # does not seem to get used
     # - name: LLMDBENCH_DEPLOY_METHODS
