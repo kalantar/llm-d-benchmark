@@ -37,7 +37,7 @@ configuration:
       # location relative the mount location where a directory containing the results of all sweeps should be written.
       dir: kalantar/inference-scheduling
   hfsecret: llm-d-hf-token
-  model: meta-llama/Llama-3.1-8B-Instruct
+  model: Qwen/Qwen3-0.6B
 
 # -----------------------------------------------------------------------------
 # components
@@ -69,7 +69,7 @@ components:
             - ReadWriteMany
             resources:
               requests:
-                storage: 100 Gi
+                storage: 300Gi
             storageClassName: default
             volumeMode: Filesystem
 
@@ -120,6 +120,8 @@ components:
   #
   # If this section is omitted or no profile is selected, the runner should assume
   # the extension configuration is already present and will remain unchanged.
+  # Mostly created with helm
+  # Created cm portion using: kubectl create cm mygaie-epp --dry-run=client --from-file=setup/presets/gaie -o yaml > api/mygaie-cm.yaml
   - component: gaie
     options:
       - name: gaie
@@ -134,6 +136,7 @@ components:
   # vllm component
   # ---------------------------------------------------------------------------
   # Defines the model serving layer. Zero or more options can be specified.
+  # Created using modelservice.
   - component: vllm
     options:
       - name: vllm
@@ -144,7 +147,7 @@ components:
   # ---------------------------------------------------------------------------
   # Creates a ConfigMap with configuration of the workload profiles.
   # This ConfigMap is required to configure the workload component.
-  # Create using: kubectl create cm ${workload_type}-profile--dry-run=client --from-file=workload/profiles/${workload_type} -o yaml > api/${workload_type}-profiles.yaml
+  # Created using: kubectl create cm ${workload_type}-profile --dry-run=client --from-file=workload/profiles/${workload_type} -o yaml > api/${workload_type}-profiles.yaml
   - component: workload-profile
     options:
       - name: shared_prefix_synthetic
@@ -158,9 +161,9 @@ components:
             path: .data.shared_prefix.output_len
 
   # ---------------------------------------------------------------------------
-  # workload component
+  # harness component
   # ---------------------------------------------------------------------------
-  # Exactly one workload must be defined here. The `harness` value identifies the
+  # Exactly one harness must be defined here. The `harness` value identifies the
   # load generator and should be one of: fmperf | inference-perf | guildllm | dllm-bench
   # (Confirm the spelling of 'guildllm' vs. your preferred tool name.)
   #
@@ -168,6 +171,7 @@ components:
   #
   # Variables here are typical load-intensity settings; the sweep can override them
   # via matching axis names in `sweepSpace.axes`.
+  # Created by hand.
   - component: harness
     options:
       - name: inference-perf

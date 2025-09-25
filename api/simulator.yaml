@@ -1,48 +1,61 @@
 metadata:
   # A short, unique suite identifier (used for naming runs and outputs).
-  name: inference-scheduling-well-lit-path-benchmark
+  name: simulator
   # One or two sentences describing what this suite explores.
   description: >
-    Define performance experiments for llm-d by sweeping Gateway API Inference Extension
-    configurations, vLLM engine knobs, and workload intensity.
+    Define an experiment to train the estimation model.
 
 # -----------------------------------------------------------------------------
 # configuration
 # -----------------------------------------------------------------------------
 # Minimal, global settings independent of any particular experiment case.
 # - namespace: where resources for this suite are created.
-# - output.baseDir: a base path where a runner MAY store logs/results/metadata.
-#   (This file does not dictate how outputs are written; runners can choose.)
-configuration:
-  namespace: llmd-bench
+# - output: location where experiment output should be written. This is a 
+#           one of git, s3, or googledrive and a dir.
+# - output.dir: the location on the target medium where a directory of the results should be written.
+# - source: the location of a directory on the results PVC where sweep steps will write results
   output:
-    baseDir: ~/data/inference-scheduling/${metadata.name}/${timestamp}
-    sourceDir: "[component=data]/options[name=results]"
+    target: # support s3, git (first), cos, googledrive
+      git:
+        secretRef: gitsecret  # should contain fields username and password
+        repository: github.com/kalantar/llm-d-data
+        branch: main
+      dir: kalantar/inference-scheduling
+    source:
+      pvc:
+        # flag indicating whether or not the PVC should be created as part of the experiment execution.
+        create: false
+        name: workload-pvc
+        # size of the volume that should be created. Ignored if create: false
+        size: 20 Gi
+        # storageClass is the StorageClass of the PVC to create. Ignored if created: false
+        # The selected StorageClass MUST support the RWX access mode.
+        storageClass: default
+      # location relative the mount location where a directory containing the results of all sweeps should be written.
+      dir: kalantar/inference-scheduling
+  hfsecret: llm-d-hf-token
+  model: meta-llama/Llama-3.1-8B-Instruct
 
 # -----------------------------------------------------------------------------
 # components
 # -----------------------------------------------------------------------------
 # Lists the configurable parts of the system under test AND the workload generator.
-# For each component you may define one or more named options. 
-# The experiment sweep can select among the profiles and over the variables of 
-# each choice.
+# For each component you may define one or more named options. These options
+# CAN be axis of the sweepSpace.
+# Only components that need to be deployed or may be modified during an experiment
+# SHOULD to be specified.
+# For each option, either a configUrl or a config MUST be specified. A configUrl
+# references a manifest that should be deployed to create the component.
+# A config is an inlined manifest; ie yaml string.
 components:
-
-  - component: data
-    options:
-      - name: results
-        config: https://a-pvc.yaml
 
   # ---------------------------------------------------------------------------
   # vllm component
   # ---------------------------------------------------------------------------
-  # Defines the model serving layer. The `options` list lets the sweep pick one
-  # deployment style (e.g., single process vs. standalone variant). Variables
-  # below provide tunables that apply to the chosen option. Options that do not
-  # recognize a variable should simply ignore it.
+  # Defines the model serving layer. Zero or more options can be specified.
   - component: vllm
     options:
-      - name: vllm-standalone
+      - name: vllm
         config: https://github.com/example-org/llmd-perf-kustomize//engine/vllm-single/overlays/base?ref=main
         vars:
           - name: gpu_memory_utilization
@@ -74,40 +87,11 @@ components:
             default: 1
 
   # ---------------------------------------------------------------------------
-  # workload component
-  # ---------------------------------------------------------------------------
-  # Exactly one workload must be defined here. The `harness` value identifies the
-  # load generator and should be one of: fmperf | inference-perf | guildllm | dllm-bench
-  # (Confirm the spelling of 'guildllm' vs. your preferred tool name.)
-  #
-  # `config` points to a reference containing the workload job/runner definition.
-  #
-  # Variables here are typical load-intensity settings; the sweep can override them
-  # via matching axis names in `sweepSpace.axes`.
-  - component: workload
-    options:
-      - name: custom-workload-generator
-        config: https://github.com/our-custom-generator/manifest.yaml
-        vars:
-          - name: results
-            fieldRef:
-              objectRef:
-                apiVersion: version
-                kind: kind
-                namespace: ns
-                name: name
-              path:
-            jsonPath: .spec.template.spec.volumes[?(@.name=="results")].persistentVolumeClaim.claimName
-            jsmePath: spec.template.spec.volumes[?name=='results'].persistentVolumeClaim.claimName
-            jsonPointer: /spec/template/spec/volumes/0/persistentVolumeClaim/claimName
-            celPath: self.spec.template.spec.volumes.exists(v, v.name == 'results')
-            targetPath: /spec/template/spec/volumes[name=results]/persistentVolumeClaim/claimName
-            default: results
-
-  #
   # workload-profile component
-  #
-  # Creates a ConfigMap with configuration of 
+  # ---------------------------------------------------------------------------
+  # Creates a ConfigMap with configuration of the workload profiles.
+  # This ConfigMap is required to configure the workload component.
+  # Create using: kubectl create cm ${workload_type}-profile--dry-run=client --from-file=workload/profiles/${workload_type} -o yaml > api/${workload_type}-profiles.yaml
   - component: workload-profile
     options:
       - name: shared_prefix_synthetic
@@ -121,6 +105,26 @@ components:
             targetPath: /output_len
           - name: prefix_hit_ratio
             targetPath: /prefix_hit_ratio
+
+  # ---------------------------------------------------------------------------
+  # harness component
+  # ---------------------------------------------------------------------------
+  # Exactly one harness must be defined here. The `harness` value identifies the
+  # load generator and should be one of: fmperf | inference-perf | guildllm | dllm-bench
+  # (Confirm the spelling of 'guildllm' vs. your preferred tool name.)
+  #
+  # `config` points to a reference containing the workload job/runner definition.
+  #
+  # Variables here are typical load-intensity settings; the sweep can override them
+  # via matching axis names in `sweepSpace.axes`.
+  - component: harness
+    options:
+      - name: custom-workload-generator
+        config: https://github.com/our-custom-generator/manifest.yaml
+        vars:
+          - name: resultsPvc
+            path: .spec.template.spec.volumes[?(@.name=="results")].persistentVolumeClaim.claimName
+            default: ${ .configuration.source.pvc.name }
 
 # -----------------------------------------------------------------------------
 # sweepSpace
@@ -141,7 +145,7 @@ components:
 sweepSpace:
   axes:
     - variables:
-        - vllm/vllm-standalone/gpu_memory_utilization
+        - vllm/vllm/gpu_memory_utilization
       levels: 
         - values: [50]
         - values: [60]
@@ -150,7 +154,7 @@ sweepSpace:
         - values: [90]
 
     - variables:
-        - vllm/vllm-standalone/block_size
+        - vllm/vllm/block_size
       levels:
         - values: [8]
         - values: [16]
@@ -158,7 +162,7 @@ sweepSpace:
         - values: [64]
 
     - variables:
-        - vllm/vllm-standalone/max_batched_tokens
+        - vllm/vllm/max_batched_tokens
       levels:
         - values: [256]
         - values: [512]
@@ -166,7 +170,7 @@ sweepSpace:
         - values: [2056]
 
     - variables:
-        - vllm/vllm-standalone/tp
+        - vllm/vllm/tp
       levels:
         - values: [1]
         - values: [2]
@@ -174,7 +178,7 @@ sweepSpace:
         - values: [8]
 
     - variables:
-        - vllm/vllm-standalone/dp
+        - vllm/vllm/dp
       levels:
         - values: [1]
         - values: [2]

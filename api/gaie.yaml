@@ -29,6 +29,141 @@ data:
       - pluginRef: queue-scorer
       - pluginRef: kv-cache-utilization-scorer
       - pluginRef: prefix-cache-scorer
+  default.yaml: |-
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: low-queue-filter
+      parameters:
+        threshold: 128
+    - type: lora-affinity-filter
+      parameters:
+        threshold: 0.999
+    - type: least-queue-filter
+    - type: least-kv-cache-filter
+    - type: decision-tree-filter
+      name: low-latency-filter
+      parameters:
+        current:
+          pluginRef: low-queue-filter
+        nextOnSuccess:
+          decisionTree:
+            current:
+              pluginRef: lora-affinity-filter
+            nextOnSuccessOrFailure:
+              decisionTree:
+                current:
+                  pluginRef: least-queue-filter
+                nextOnSuccessOrFailure:
+                  decisionTree:
+                    current:
+                      pluginRef: least-kv-cache-filter
+        nextOnFailure:
+          decisionTree:
+            current:
+              pluginRef: least-queue-filter
+            nextOnSuccessOrFailure:
+              decisionTree:
+                current:
+                  pluginRef: lora-affinity-filter
+                nextOnSuccessOrFailure:
+                  decisionTree:
+                    current:
+                      pluginRef: least-kv-cache-filter
+    - type: random-picker
+      parameters:
+        maxNumOfEndpoints: 1
+    - type: single-profile-handler
+    schedulingProfiles:
+    - name: default
+      plugins:
+      - pluginRef: low-latency-filter
+      - pluginRef: random-picker
+  pd-config.yaml: |-
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: prefill-header-handler
+    - type: prefill-filter
+    - type: decode-filter
+    - type: max-score-picker
+    - type: queue-scorer
+      parameters:
+        hashBlockSize: 5
+        maxPrefixBlocksToMatch: 256
+        lruCapacityPerServer: 31250
+    - type: pd-profile-handler
+      parameters:
+        threshold: 0
+        hashBlockSize: 5
+    schedulingProfiles:
+    - name: prefill
+      plugins:
+      - pluginRef: prefill-filter
+      - pluginRef: queue-scorer
+        weight: 1.0
+      - pluginRef: max-score-picker
+    - name: decode
+      plugins:
+      - pluginRef: decode-filter
+      - pluginRef: queue-scorer
+        weight: 1.0
+      - pluginRef: max-score-picker
+  prefix-cache-estimate-config.yaml: |-
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: queue-scorer
+    - type: kv-cache-scorer
+    - type: prefix-cache-scorer
+      parameters:
+        hashBlockSize: 64
+        maxPrefixBlocksToMatch: 256
+        lruCapacityPerServer: 31250
+    - type: max-score-picker
+      parameters:
+        maxNumOfEndpoints: 1
+    - type: single-profile-handler
+    schedulingProfiles:
+    - name: default
+      plugins:
+      - pluginRef: queue-scorer
+        weight: 1
+      - pluginRef: kv-cache-scorer
+        weight: 1
+      - pluginRef: prefix-cache-scorer
+        weight: 3
+      - pluginRef: max-score-picker
+  prefix-cache-tracking-config.yaml: |-
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: single-profile-handler
+    - type: decode-filter
+    - type: prefix-cache-scorer
+      parameters:
+        mode: cache_tracking
+        indexerConfig:
+          tokenProcessorConfig:
+            blockSize: 64                         # must match vLLM block size if not default (16)
+            hashSeed: "42"                        # must match PYTHONHASHSEED in vLLM pods
+          kvBlockIndexConfig:
+            enableMetrics: true                   # enable kv-block index metrics (prometheus)
+            metricsLoggingInterval: 60000000000   # log kv-block metrics as well (1m in nanoseconds)
+    - type: kv-cache-scorer # kv-cache-utilization
+    - type: queue-scorer
+    - type: max-score-picker
+    schedulingProfiles:
+    - name: default
+      plugins:
+        - pluginRef: decode-filter
+        - pluginRef: prefix-cache-scorer
+          weight: 2.0
+        - pluginRef: kv-cache-scorer
+          weight: 1.0
+        - pluginRef: queue-scorer
+          weight: 1.0
+        - pluginRef: max-score-picker
 ---
 # Source: inferencepool/templates/rbac.yaml
 kind: ClusterRole

@@ -9,7 +9,7 @@ spec:
   serviceAccountName: $LLMDBENCH_HARNESS_SERVICE_ACCOUNT
   containers:
   - name: harness
-    image: ghcr.io/llm-d/llm-d-benchmark:latest
+    image: ghcr.io/llm-d/llm-d-benchmark:v0.3.0rc2
     imagePullPolicy: Always
     securityContext:
       runAsUser: 0
