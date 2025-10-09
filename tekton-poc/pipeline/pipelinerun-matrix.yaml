@@ -21,7 +21,7 @@ spec:
             workspace: data
         params:
           - name: namespace
-            value: CHANGE_ME
+            value: jchen
           - name: model-id
             value: "Qwen/Qwen3-0.6B"
           - name: experimentBaseUrl
@@ -33,18 +33,16 @@ spec:
         matrix:
           params:
             - name: gaiePluginConfig
-              value: 
-                - "inf-sche-none.yaml"
-                - "inf-sche-prefix.yaml"
-                - "inf-sche-kv.yaml"
-                - "inf-sche-queue.yaml"
+              value:
+                - "inf-sche-upstream-default.yaml"
+                - "inf-sche-load.yaml"
             - name: question_len
               value:
                 - "100"
                 - "300"
                 - "1000"
             - name: output_len
-              value: 
+              value:
                 - "100"
                 - "300"
                 - "1000"

@@ -31,18 +31,16 @@ spec:
         matrix:
           params:
             - name: gaiePluginConfig
-              value: 
-                - "inf-sche-none.yaml"
-                - "inf-sche-prefix.yaml"
-                - "inf-sche-kv.yaml"
-                - "inf-sche-queue.yaml"
+              value:
+                - "inf-sche-upstream-default.yaml"
+                - "inf-sche-load.yaml"
             - name: question_len
               value:
                 - "100"
                 - "300"
                 - "1000"
             - name: output_len
-              value: 
+              value:
                 - "100"
                 - "300"
                 - "1000"
@@ -50,7 +48,7 @@ spec:
             - name: combo-1
               params:
                 - name: gaiePluginConfig
-                  value: "inf-sche-none.yaml"
+                  value: "inf-sche-upstream-default.yaml"
                 - name: question_len
                   value: "100"
                 - name: output_len
@@ -58,24 +56,8 @@ spec:
             - name: combo-2
               params:
                 - name: gaiePluginConfig
-                  value: "inf-sche-prefix.yaml"
+                  value: "inf-sche-load.yaml"
                 - name: question_len
-                  value: "300"
-                - name: output_len
-                  value: "300"
-            - name: combo-3
-              params:
-                - name: gaiePluginConfig
-                  value: "inf-sche-kv.yaml"
-                - name: question_len
-                  value: "1000"
+                  value: "100"
                 - name: output_len
                   value: "100"
-            - name: combo-4
-              params:
-                - name: gaiePluginConfig
-                  value: "inf-sche-queue.yaml"
-                - name: question_len
-                  value: "300"
-                - name: output_len
-                  value: "1000"
