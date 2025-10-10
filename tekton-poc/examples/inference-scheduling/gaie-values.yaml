@@ -31,11 +31,14 @@ inferenceExtension:
       apiVersion: inference.networking.x-k8s.io/v1alpha1
       kind: EndpointPickerConfig
       plugins:
+      - type: decode-filter
       - type: queue-scorer
       - type: prefix-cache-scorer
+      - type: single-profile-handler
       schedulingProfiles:
       - name: default
         plugins:
+        - pluginRef: decode-filter
         - pluginRef: queue-scorer
           weight: 1
         - pluginRef: prefix-cache-scorer
