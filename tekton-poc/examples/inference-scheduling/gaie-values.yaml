@@ -35,6 +35,7 @@ inferenceExtension:
       - type: queue-scorer
       - type: prefix-cache-scorer
       - type: single-profile-handler
+      - type: max-score-picker
       schedulingProfiles:
       - name: default
         plugins:
