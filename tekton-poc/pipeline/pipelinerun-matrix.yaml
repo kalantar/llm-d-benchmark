@@ -61,9 +61,9 @@ spec:
           params:
             - name: gaiePluginConfig
               value:
-                # - "inf-sche-none.yaml"
-                # - "inf-sche-prefix.yaml"
-                # - "inf-sche-kv.yaml"
+                - "inf-sche-none.yaml"
+                - "inf-sche-prefix.yaml"
+                - "inf-sche-kv.yaml"
                 - "inf-sche-queue.yaml"
             - name: question_len
               value:
@@ -72,6 +72,6 @@ spec:
                 - "1000"
             - name: output_len
               value:
-                # - "100"
+                - "100"
                 - "300"
                 - "1000"
