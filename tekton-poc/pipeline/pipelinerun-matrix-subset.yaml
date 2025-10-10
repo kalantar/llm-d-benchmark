@@ -27,7 +27,7 @@ spec:
           - name: experimentBaseUrl
             value: https://raw.githubusercontent.com/jgchn/llm-d-benchmark/refs/heads/jc-tekton/tekton-poc/examples/inference-scheduling/
           - name: harnessProfile
-            value: shared_prefix_synthetic.yaml
+            value: shared_prefix_synthetic_short.yaml
         matrix:
           # params:
           #   - name: gaiePluginConfig
