@@ -14,11 +14,12 @@ spec:
       type: string
     - name: output_len
       type: string
-
-    - name: namespace
+    - name: gaiePluginConfig
       type: string
-      default: kalantar-llmd
-      description: Target namespace
+
+    - name: targetNamespacePrefix
+      type: string
+      default: llmdbench
 
     - name: model-id
       type: string
@@ -118,15 +119,13 @@ spec:
       type: string
       default: experiment
 
-    - name: bucket
+    - name: s3-keys
       type: string
-      default: "cloud-object-storage-cos-standard-ere"
-    - name: prefix
+      default: "s3-keys"
+    - name: s3-bucket
       type: string
-      default: "results"
-    - name: endpoint
+    - name: s3-endpoint
       type: string
-      default: "https://s3.us-east.cloud-object-storage.appdomain.cloud"
 
     - name: dry-run
       type: string 
@@ -137,14 +136,17 @@ spec:
       image: alpine:3.20
       script: |
         #!/bin/sh
-        echo "🔄 Starting sweep step ..."
+        echo "🔄 Starting sweep step for ..."
+        echo "     gaiePluginConfig = $(params.gaiePluginConfig)"
+        echo "         question_len = $(params.question_len)"
+        echo "           output_len = $(params.output_len)"
 
     - name: prepare-namespace
       image: quay.io/openshift/origin-cli:4.21
       script: |
         #!/bin/sh
 
-        NAMESPACE="$(params.namespace)-$(context.taskRun.name)"
+        NAMESPACE="$(params.targetNamespacePrefix)-$(context.taskRun.name)"
         DRY_RUN="$(params.dry-run)"
 
         if [ "${DRY_RUN}" = "true" ]; then
@@ -190,7 +192,7 @@ spec:
         - name: chart
           value: /tmp/llm-d-benchmark/charts/model-download        
         - name: namespace
-          value: $(params.namespace)-$(context.taskRun.name)
+          value: $(params.targetNamespacePrefix)-$(context.taskRun.name)
         - name: timeout
           value: 15m
         # - name: valuesYamlUrl
@@ -226,7 +228,7 @@ spec:
           value: https://llm-d-incubation.github.io/llm-d-infra/
         
         - name: namespace
-          value: $(params.namespace)-$(context.taskRun.name)
+          value: $(params.targetNamespacePrefix)-$(context.taskRun.name)
         - name: timeout
           value: 15m
         - name: valuesYamlUrl
@@ -247,7 +249,7 @@ spec:
           value: $(params.gaieChartVersion)
         
         - name: namespace
-          value: $(params.namespace)-$(context.taskRun.name)
+          value: $(params.targetNamespacePrefix)-$(context.taskRun.name)
         - name: timeout
           value: 15m
         - name: valuesYamlUrl
@@ -272,7 +274,7 @@ spec:
           value: https://llm-d-incubation.github.io/llm-d-modelservice/
         
         - name: namespace
-          value: $(params.namespace)-$(context.taskRun.name)
+          value: $(params.targetNamespacePrefix)-$(context.taskRun.name)
         - name: timeout
           value: 15m
         - name: valuesYamlUrl
@@ -295,7 +297,7 @@ spec:
           echo ">> skipping"
           exit 0
         fi
-        NAMESPACE="$(params.namespace)-$(context.taskRun.name)"
+        NAMESPACE="$(params.targetNamespacePrefix)-$(context.taskRun.name)"
         MODEL_ID="$(params.model-id)"
         MODEL_LABEL=$(echo "$MODEL_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[./]/-/g')
         MODEL_START_TIMEOUT="$(params.modelWaitTimeout)"
@@ -349,11 +351,11 @@ spec:
         - name: LLMDBENCH_HARNESS_NAME
           value: "$(params.harnessName)"
         - name: LLMDBENCH_HARNESS_NAMESPACE
-          value: "$(params.namespace)-$(context.taskRun.name)"
+          value: "$(params.targetNamespacePrefix)-$(context.taskRun.name)"
         - name: LLMDBENCH_HARNESS_STACK_TYPE
           value: "llm-d"
         - name: LLMDBENCH_HARNESS_STACK_ENDPOINT_URL
-          value: "http://experiment-gateway-inference-gateway.$(params.namespace)-$(context.taskRun.name).svc.cluster.local:80"
+          value: "http://experiment-gateway-inference-gateway.$(params.targetNamespacePrefix)-$(context.taskRun.name).svc.cluster.local:80"
         - name: LLMDBENCH_DEPLOY_METHODS
           value: "modelservice"
         - name: LLMDBENCH_MAGIC_ENVAR
@@ -449,7 +451,7 @@ spec:
           workload_template_file_name=$(echo ${workload_template_full_path} | rev | cut -d '/' -f 1 | rev | sed -e "s^\.yaml.in$^^g")
           echo "workload_template_file_name = $workload_template_file_name"
           ## 
-          workload_output_file=${LLMDBENCH_CONTROL_WORK_DIR}/shared_prefix_synthetic_short.yaml
+          workload_output_file=${LLMDBENCH_CONTROL_WORK_DIR}/${workload_template_file_name}.yaml
           # workload_output_file=${LLMDBENCH_CONTROL_WORK_DIR}/$workload_template_type/$workload_template_file_name
           echo "workload_output_file = $workload_output_file"
           ##
@@ -480,12 +482,12 @@ spec:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: ibm-cos-secret
+              name: $(params.s3-keys)
               key: AWS_ACCESS_KEY_ID
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: ibm-cos-secret
+              name: $(params.s3-keys)
               key: AWS_SECRET_ACCESS_KEY
         - name: AWS_EC2_METADATA_DISABLED
           value: "true"
@@ -499,10 +501,11 @@ spec:
         EXPERIMENT_RESULTS_FOLDER="$(params.harnessName)_${EXPERIMENT_ID}_$(context.taskRun.name)"
         ARCHIVE_NAME="${EXPERIMENT_RESULTS_FOLDER}.tar.gz"
 
-        tar -czf ${ARCHIVE_NAME} -C "$(workspaces.data.path)" ${EXPERIMENT_RESULTS_FOLDER}
+        tar -czf ${ARCHIVE_NAME} \
+            -C "$(workspaces.data.path)" ${EXPERIMENT_RESULTS_FOLDER}
 
-        aws s3 cp ${ARCHIVE_NAME} "s3://$(params.bucket)/${ARCHIVE_NAME}" \
-            --endpoint-url "$(params.endpoint)" \
+        aws s3 cp ${ARCHIVE_NAME} "s3://$(params.s3-bucket)/${ARCHIVE_NAME}" \
+            --endpoint-url "$(params.s3-endpoint)" \
             --content-type "application/x-tar" \
             --content-encoding "gzip" \
             --no-progress
@@ -517,7 +520,7 @@ spec:
       script : |
         #!/bin/sh
 
-        NAMESPACE="$(params.namespace)-$(context.taskRun.name)"
+        NAMESPACE="$(params.targetNamespacePrefix)-$(context.taskRun.name)"
 
         if [ "$(params.dry-run)" = "true" ]; then
           echo ">> skipping"
@@ -526,7 +529,7 @@ spec:
 
         # kubectl delete namespace ${NAMESPACE}
 
-        echo "✅ workload namespace deleted"
+        echo "✅ workload namespace ${NAMESPACE} deleted"
 
     - name: log-completion
       image: alpine:3.20
