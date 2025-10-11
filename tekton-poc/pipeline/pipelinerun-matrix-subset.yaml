@@ -48,7 +48,7 @@ spec:
           - name: model-id
             value: $(params.model-id)
           - name: experimentBaseUrl
-            value: https://raw.githubusercontent.com/kalantar/llm-d-benchmark/refs/heads/tekton-poc/tekton-poc/examples/inference-scheduling/
+            value: https://raw.githubusercontent.com/jgchn/llm-d-benchmark/refs/heads/jc-tekton/tekton-poc/examples/inference-scheduling/
 
           - name: s3-keys
             value: $(params.s3-keys)
@@ -69,7 +69,7 @@ spec:
             - name: combo-1
               params:
                 - name: gaiePluginConfig
-                  value: "inf-sche-none.yaml"
+                  value: "inf-sche-load.yaml"
                 - name: question_len
                   value: "100"
                 - name: output_len
@@ -77,8 +77,16 @@ spec:
             - name: combo-2
               params:
                 - name: gaiePluginConfig
-                  value: "inf-sche-prefix.yaml"
+                  value: "inf-sche-load.yaml"
                 - name: question_len
                   value: "300"
                 - name: output_len
                   value: "300"
+            - name: combo-3
+              params:
+                - name: gaiePluginConfig
+                  value: "inf-sche-upstream-default.yaml"
+                - name: question_len
+                  value: "100"
+                - name: output_len
+                  value: "100"

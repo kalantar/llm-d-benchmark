@@ -1,0 +1,14 @@
+# rwx-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workspace-pvc
+  namespace: jchen
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 300Gi
+  # Optional: uncomment and set to your RWX-capable StorageClass
+  storageClassName: ocs-storagecluster-cephfs

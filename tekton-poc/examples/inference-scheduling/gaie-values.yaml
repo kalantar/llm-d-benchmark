@@ -23,120 +23,42 @@ inferenceExtension:
         secretKeyRef:
           name: hf-secret
           key: HF_TOKEN
-  pluginsConfigFile: "inf-sche-none.yaml"
+  pluginsConfigFile: "inf-sche-load.yaml"
   pluginsCustomConfig:
-    inf-sche-none.yaml: |
-      # Sample EPP configuration for running without P/D with no scorers
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-none.yaml
+    inf-sche-upstream-default.yaml: |
+      # Sample EPP configuration for running without P/D with the default plugins
+      # https://github.com/kubernetes-sigs/gateway-api-inference-extension/blob/123ad68c59aff1060a4022c394c52d16cd5d86b7/config/charts/inferencepool/templates/epp-config.yaml#L7
       apiVersion: inference.networking.x-k8s.io/v1alpha1
       kind: EndpointPickerConfig
       plugins:
-      - type: prefix-cache-scorer
       - type: decode-filter
-      - type: max-score-picker
-      - type: single-profile-handler
-      schedulingProfiles:
-      - name: default
-        plugins:
-        - pluginRef: decode-filter
-        - pluginRef: max-score-picker
-        - pluginRef: prefix-cache-scorer
-          weight: 0
-    inf-sche-prefix-kv-queue.yaml: |
-      # Sample EPP configuration for running without P/D with prefix, kv, and queue scorers
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-prefix-kv-queue.yaml
-      apiVersion: inference.networking.x-k8s.io/v1alpha1
-      kind: EndpointPickerConfig
-      plugins:
-      - type: prefix-cache-scorer
-      - type: decode-filter
-      - type: max-score-picker
-      - type: single-profile-handler
-      - type: kv-cache-scorer
-      - type: queue-cache-scorer
-      schedulingProfiles:
-      - name: default
-        plugins:
-        - pluginRef: decode-filter
-        - pluginRef: max-score-picker
-        - pluginRef: prefix-cache-scorer
-          weight: 1
-        - pluginRef: kv-cache-scorer
-          weight: 1
-        - pluginRef: queue-scorer
-          weight: 1
-    inf-sche-prefix-kv.yaml: |
-      # Sample EPP configuration for running without P/D with prefix and kv scorers
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-prefix-kv.yaml
-      apiVersion: inference.networking.x-k8s.io/v1alpha1
-      kind: EndpointPickerConfig
-      plugins:
-      - type: prefix-cache-scorer
-      - type: decode-filter
-      - type: max-score-picker
-      - type: single-profile-handler
-      - type: kv-cache-scorer
-      schedulingProfiles:
-      - name: default
-        plugins:
-        - pluginRef: decode-filter
-        - pluginRef: max-score-picker
-        - pluginRef: prefix-cache-scorer
-          weight: 1
-        - pluginRef: kv-cache-scorer
-          weight: 1
-        - pluginRef: queue-scorer
-          weight: 1
-    inf-sche-prefix.yaml: |
-      # Sample EPP configuration for running without P/D with prefix scorer with weight of 1
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-prefix.yaml
-      apiVersion: inference.networking.x-k8s.io/v1alpha1
-      kind: EndpointPickerConfig
-      plugins:
-      - type: prefix-cache-scorer
-      - type: decode-filter
-      - type: max-score-picker
-      - type: single-profile-handler
-      schedulingProfiles:
-      - name: default
-        plugins:
-        - pluginRef: decode-filter
-        - pluginRef: max-score-picker
-        - pluginRef: prefix-cache-scorer
-          weight: 1
-    inf-sche-queue.yaml: |
-      # Sample EPP configuration for running without P/D with no scorers
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-queue.yaml
-      apiVersion: inference.networking.x-k8s.io/v1alpha1
-      kind: EndpointPickerConfig
-      plugins:
       - type: queue-scorer
-      - type: decode-filter
-      - type: max-score-picker
+      - type: prefix-cache-scorer
       - type: single-profile-handler
+      - type: max-score-picker
       schedulingProfiles:
       - name: default
         plugins:
         - pluginRef: decode-filter
-        - pluginRef: max-score-picker
         - pluginRef: queue-scorer
           weight: 1
-    inf-sche-kv.yaml: |
-      # Sample EPP configuration for running without P/D with no scorers
-      # https://raw.githubusercontent.com/llm-d/llm-d-benchmark/refs/heads/main/setup/presets/gaie/inf-sche-kv.yaml
+        - pluginRef: prefix-cache-scorer
+          weight: 1
+    inf-sche-load.yaml: |
+      # Sample EPP configuration for running without P/D with load-aware scorer
       apiVersion: inference.networking.x-k8s.io/v1alpha1
       kind: EndpointPickerConfig
       plugins:
-      - type: kv-cache-scorer
       - type: decode-filter
       - type: max-score-picker
       - type: single-profile-handler
+      - type: load-aware-scorer
       schedulingProfiles:
       - name: default
         plugins:
         - pluginRef: decode-filter
         - pluginRef: max-score-picker
-        - pluginRef: kv-cache-scorer
+        - pluginRef: load-aware-scorer
           weight: 1
 inferencePool:
   targetPortNumber: 8000
