@@ -11,7 +11,8 @@ spec:
         claimName: workspace-pvc
   params:
     - name: targetNamespacePrefix
-      value: kalantar
+      # This can be anything.
+      value: $(context.pipelineRun.namespace)
     - name: model-id
       value: "Qwen/Qwen3-0.6B"
 
@@ -62,16 +63,24 @@ spec:
             - name: combo-1
               params:
                 - name: gaiePluginConfig
+                  value: "inf-sche-load.yaml"
+                - name: question_len
+                  value: "100"
+                - name: output_len
+                  value: "100"
+            - name: combo-2
+              params:
+                - name: gaiePluginConfig
+                  value: "inf-sche-load.yaml"
+                - name: question_len
+                  value: "300"
+                - name: output_len
+                  value: "300"
+            - name: combo-3
+              params:
+                - name: gaiePluginConfig
                   value: "inf-sche-upstream-default.yaml"
                 - name: question_len
                   value: "100"
                 - name: output_len
                   value: "100"
-            # - name: combo-2
-            #   params:
-            #     - name: gaiePluginConfig
-            #       value: "inf-sche-load.yaml"
-            #     - name: question_len
-            #       value: "300"
-            #     - name: output_len
-            #       value: "300"
