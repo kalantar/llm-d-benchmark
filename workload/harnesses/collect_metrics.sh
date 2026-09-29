@@ -238,21 +238,21 @@ collect_pod_startup_times() {
         --field-selector=status.phase=Running \
         -o json 2>>"$debug_log") || requester_json='{"items":[]}'
 
-    pods_json=$(_MC_SERVING="$pods_json" _MC_REQUESTER="$requester_json" python3 -c '
-import json, os
+    pods_json=$(printf '{"serving":%s,"requester":%s}' "$pods_json" "$requester_json" | python3 -c '
+import json, sys
 items, seen = [], set()
-for env in ("_MC_SERVING", "_MC_REQUESTER"):
-    try:
-        d = json.loads(os.environ.get(env) or "{}")
-    except json.JSONDecodeError:
-        d = {}
-    for it in d.get("items", []):
+try:
+    data = json.load(sys.stdin)
+except json.JSONDecodeError:
+    data = {}
+for key in ("serving", "requester"):
+    for it in (data.get(key) or {}).get("items", []):
         n = it.get("metadata", {}).get("name", "")
         if n and n not in seen:
             seen.add(n)
             items.append(it)
 print(json.dumps({"items": items}))
-' 2>>"$debug_log") || pods_json='{"items":[]}'
+' 2>>"$debug_log") || { echo "Warning: Failed to merge pod lists (see $debug_log)" >&2; pods_json='{"items":[]}'; }
 
     echo "$pods_json" | _ST_OUTPUT="$output_file" python3 -c '
 import json, sys, os
